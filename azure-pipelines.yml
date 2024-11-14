@@ -1,49 +1,43 @@
-# Archivo YAML para el pipeline de CI/CD de ASP.NET Core en Azure DevOps
-
 trigger:
-  branches:
-    include:
-      - main  # Ajusta la rama principal si es necesario
+- '*'
 
 pool:
-  vmImage: 'windows-latest'  # Usa la última versión de Windows
+  vmImage: ubuntu-latest
 
 variables:
   buildConfiguration: 'Release'
 
 steps:
 - task: UseDotNet@2
+  displayName: 'Use .NET SDK 6.x'
   inputs:
-    packageType: 'sdk'
-    version: '6.x'  # Asegúrate de especificar la versión correcta de .NET SDK
-    installationPath: $(Agent.ToolsDirectory)/dotnet
+    packageType: sdk
+    version: '6.x'
+
+- task: Npm@1
+  displayName: 'Run npm install'
+  inputs:
+    verbose: false
+
+- script: './node_modules/.bin/node-sass Tailspin.SpaceGame.Web/wwwroot --output Tailspin.SpaceGame.Web/wwwroot'
+  displayName: 'Compile Sass assets'
+
+- task: gulp@1
+  displayName: 'Run gulp tasks'
+
+- script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+  displayName: 'Write build info'
+  workingDirectory: Tailspin.SpaceGame.Web/wwwroot
 
 - task: DotNetCoreCLI@2
+  displayName: 'Restore project dependencies'
   inputs:
     command: 'restore'
-    projects: '**/*.csproj'  # Restaura las dependencias para todos los proyectos
+    projects: '**/*.csproj'
 
 - task: DotNetCoreCLI@2
+  displayName: 'Build the project - Release'
   inputs:
     command: 'build'
+    arguments: '--no-restore --configuration Release'
     projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration)'
-
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'test'
-    projects: '**/*.Tests.csproj'  # Asegúrate de que tus proyectos de prueba sigan este patrón
-    arguments: '--configuration $(buildConfiguration)'
-
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'publish'
-    projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-    publishWebProjects: true
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
