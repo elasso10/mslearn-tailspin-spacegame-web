@@ -1,3 +1,49 @@
-pool: MyAgentPool
+# Archivo YAML para el pipeline de CI/CD de ASP.NET Core en Azure DevOps
+
+trigger:
+  branches:
+    include:
+      - main  # Ajusta la rama principal si es necesario
+
+pool:
+  vmImage: 'windows-latest'  # Usa la última versión de Windows
+
+variables:
+  buildConfiguration: 'Release'
+
 steps:
-- bash: echo hello world
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '6.x'  # Asegúrate de especificar la versión correcta de .NET SDK
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'  # Restaura las dependencias para todos los proyectos
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'test'
+    projects: '**/*.Tests.csproj'  # Asegúrate de que tus proyectos de prueba sigan este patrón
+    arguments: '--configuration $(buildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    publishWebProjects: true
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
